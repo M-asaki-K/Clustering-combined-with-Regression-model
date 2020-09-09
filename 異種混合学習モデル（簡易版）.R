@@ -34,6 +34,7 @@ Clusters <- as.numeric(predict_KMeans(multi.regression.x, CENTROIDS = Centroid.k
 multi.regression.compounds.clusters <- cbind(multi.regression.compounds, Clusters)
 multi.regression.x.clusters <- cbind(multi.regression.x, Clusters)
 
+#各クラスタに対し回帰モデルの構築
 TRAIN <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"))%dopar%{                        
   compounds.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
   x.clusters <- multi.regression.x.clusters[multi.regression.x.clusters[, c(ncol(multi.regression.x.clusters))] == i, ]
@@ -61,6 +62,7 @@ TRAIN <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"
   
   compounds.plsr.clusters <- plsr(preprocessed.y~., data=multi.regression.compounds.train.clusters, validation= validation.method)
   summary(compounds.plsr.clusters)
+  #PLSの主成分数決定
     if (length(which.min(compounds.plsr.clusters$validation$PRESS)) == 0) {                 # if ( 条件式 )
     ncomp.onesigma.clusters <- 1                   #  条件式が TRUE  のときに実行される部分
   } else {
@@ -70,8 +72,7 @@ TRAIN <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"
   data.frame(plsr.predicted.y.clusters, preprocessed.y.train.clusters)
 }
 
-plot(TRAIN[, c(2)], TRAIN[, c(1)])
-
+#テストデータに関する予測値の計算
 TEST <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"))%dopar%{                        
   
   compounds.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
@@ -113,6 +114,7 @@ TEST <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls")
   data.frame(pls.predicted.y.test.clusters, preprocessed.y.test.clusters)
 }
 
+#プロットの作成
 plot(TRAIN[, c(2)], TRAIN[, c(1)], xlim = c(-2, 8), ylim = c(-2,8), xlab = "", ylab = "")
 par(new = T)
 plot(TEST[, c(2)], TEST[, c(1)], col = "blue", pch = 2, xlim = c(-2, 8), ylim = c(-2,8), xlab = "observed value", ylab = "predicted value")
