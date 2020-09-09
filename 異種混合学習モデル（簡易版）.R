@@ -21,12 +21,13 @@ registerDoParallel(makeCluster(detectCores()))
 
 
 #計算条件変数の設定
-max.num.of.clusters <- 3
+max.num.of.clusters <- 15
 scale <- "BIC"
+validation.method <- "CV"
 
 #クラスタリング
 BIC.measured.kmeans <- as.matrix(Optimal_Clusters_KMeans(multi.regression.x, max.num.of.clusters, criterion = scale))
-Centroid.kmeans <- KMeans_rcpp(multi.regression.x, which(BIC.measured.kmeans == BIC.measured.kmeans[BIC.measured.kmeans == min(BIC.measured.kmeans),]), num_init = 5, max_iters = 100, initializer = "kmeans++")
+Centroid.kmeans <- KMeans_rcpp(multi.regression.x, which(BIC.measured.kmeans == BIC.measured.kmeans[BIC.measured.kmeans == min(BIC.measured.kmeans),]), num_init = 20, max_iters = 100, initializer = "kmeans++")
 Centroid.kmeans$centroids
 
 Clusters <- as.numeric(predict_KMeans(multi.regression.x, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
@@ -34,7 +35,6 @@ multi.regression.compounds.clusters <- cbind(multi.regression.compounds, Cluster
 multi.regression.x.clusters <- cbind(multi.regression.x, Clusters)
 
 TRAIN <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"))%dopar%{                        
-
   compounds.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
   x.clusters <- multi.regression.x.clusters[multi.regression.x.clusters[, c(ncol(multi.regression.x.clusters))] == i, ]
   #--------------------divide into test and training data----------------------
@@ -59,11 +59,13 @@ TRAIN <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"
   #------------------------PLS training------------------------------------
   library(pls)
   
-  compounds.plsr.clusters <- plsr(preprocessed.y~., data=multi.regression.compounds.train.clusters, validation="CV")
+  compounds.plsr.clusters <- plsr(preprocessed.y~., data=multi.regression.compounds.train.clusters, validation= validation.method)
   summary(compounds.plsr.clusters)
-  
-  ncomp.onesigma.clusters <- which.min(compounds.plsr.clusters$validation$PRESS)
-
+    if (length(which.min(compounds.plsr.clusters$validation$PRESS)) == 0) {                 # if ( 条件式 )
+    ncomp.onesigma.clusters <- 1                   #  条件式が TRUE  のときに実行される部分
+  } else {
+    ncomp.onesigma.clusters <- which.min(compounds.plsr.clusters$validation$PRESS)                   #  条件式が FALSE のときに実行される部分
+  }
   plsr.predicted.y.clusters <- predict(compounds.plsr.clusters)[, , ncomp.onesigma.clusters]
   data.frame(plsr.predicted.y.clusters, preprocessed.y.train.clusters)
 }
@@ -96,11 +98,14 @@ TEST <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls")
   #------------------------PLS training------------------------------------
   library(pls)
   
-  compounds.plsr.clusters <- plsr(preprocessed.y~., data=multi.regression.compounds.train.clusters, validation="CV")
+  compounds.plsr.clusters <- plsr(preprocessed.y~., data=multi.regression.compounds.train.clusters, validation= validation.method)
   summary(compounds.plsr.clusters)
-  plot(compounds.plsr.clusters, "validation")
-  
-  ncomp.onesigma.clusters <- which.min(compounds.plsr.clusters$validation$PRESS)
+
+  if (length(which.min(compounds.plsr.clusters$validation$PRESS)) == 0) {                 # if ( 条件式 )
+    ncomp.onesigma.clusters <- 1                   #  条件式が TRUE  のときに実行される部分
+  } else {
+    ncomp.onesigma.clusters <- which.min(compounds.plsr.clusters$validation$PRESS)                   #  条件式が FALSE のときに実行される部分
+  }
   
   plsr.predicted.y.clusters <- predict(compounds.plsr.clusters)[, , ncomp.onesigma.clusters]
   pls.predicted.y.test.clusters <- predict(compounds.plsr.clusters,newdata = multi.regression.x.test.clusters)[,, ncomp.onesigma.clusters]
@@ -108,5 +113,8 @@ TEST <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls")
   data.frame(pls.predicted.y.test.clusters, preprocessed.y.test.clusters)
 }
 
-plot(TEST[, c(2)], TEST[, c(1)])
-  
+plot(TRAIN[, c(2)], TRAIN[, c(1)], xlim = c(-2, 8), ylim = c(-2,8), xlab = "", ylab = "")
+par(new = T)
+plot(TEST[, c(2)], TEST[, c(1)], col = "blue", pch = 2, xlim = c(-2, 8), ylim = c(-2,8), xlab = "observed value", ylab = "predicted value")
+abline(a=0, b=1)
+
