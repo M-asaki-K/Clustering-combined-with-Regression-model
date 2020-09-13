@@ -1,4 +1,4 @@
-#-----------remove some columns if needed（今回は12列目を除去）--------------
+#-----------remove some columns if needed（今回は8列目を除去）--------------
 trimed.compounds <- compounds[, -c(8)]
 
 #-----------select rows without empty cells---------
@@ -8,7 +8,7 @@ is.completes
 complete.compounds <- trimed.compounds[is.completes,]
 View(complete.compounds)
 
-#-----------select x from the dataset（complete.compoundsおよび、代理変数）-----------------
+#-----------select x from the dataset-----------------
 x <- complete.compounds[,c(3, 4, 6:413)]
 View(x)
 
@@ -37,3 +37,4 @@ View(preprocessed.x)
 
 #-----------x converted into data frame type for machine learning-----------
 preprocessed.x <- data.frame(preprocessed.x)
+

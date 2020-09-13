@@ -27,38 +27,6 @@ multi.regression.x.test <- multi.regression.compounds.test[,-c(1)]
 #-----------transform into data frame--------------------------
 multi.regression.compounds.train <- as.data.frame(multi.regression.compounds.train)
 
-#----------------------MLR regression training--------------------------------------------
-compounds.lm <- lm(preprocessed.y~., data=multi.regression.compounds.train)
-compounds.lm
-
-summary(compounds.lm)
-
-lm.predicted.y <- predict(compounds.lm)
-lm.predicted.y
-
-cor(preprocessed.y.train, lm.predicted.y)
-lm.r2 <- cor(preprocessed.y.train, lm.predicted.y)**2
-lm.r2
-
-plot(preprocessed.y.train, lm.predicted.y,
-     xlab="Observed value",
-     ylab="Predicted value", main = "MLR")
-abline(a=0, b=1)
-
-#-------------------------MLR test--------------------------------
-lm.predicted.y.test <- predict(compounds.lm,newdata = multi.regression.x.test)
-lm.predicted.y.test
-
-cor(preprocessed.y.test, lm.predicted.y.test)
-lm.r2.test <- cor(preprocessed.y.test, lm.predicted.y.test)**2
-lm.r2.test
-
-plot(preprocessed.y.test, lm.predicted.y.test,
-     xlab="Observed value",
-     ylab="Predicted value", main = "MLR test")
-abline(a=0, b=1)
-
-
 #------------------------PLS training------------------------------------
 library(pls)
 
@@ -71,30 +39,15 @@ ncomp.onesigma
 
 predict(compounds.plsr)[, , ncomp.onesigma]
 plsr.predicted.y <- predict(compounds.plsr)[, , ncomp.onesigma]
-plsr.r2 <- cor(multi.regression.compounds.train[,c(1)], plsr.predicted.y)**2
-plsr.r2
-
-plot(multi.regression.compounds.train[,c(1)], plsr.predicted.y,
-     xlab="Observed value",
-     ylab="Predicted value",
-     main="PLSR")
-abline(a=0, b=1)
-
-compounds.plsr$coefficients[, , ncomp.onesigma]
 
 #-------------------------pls test--------------------------------
 pls.predicted.y.test <- predict(compounds.plsr,newdata = multi.regression.x.test)[,, ncomp.onesigma]
-cor(preprocessed.y.test, pls.predicted.y.test)
-pls.r2.test <- cor(preprocessed.y.test, pls.predicted.y.test)**2
-pls.r2.test
-
-plot(preprocessed.y.test, pls.predicted.y.test,
-     xlab="Observed value",
-     ylab="Predicted value", main = "PLS test")
-abline(a=0, b=1)
 
 plot(multi.regression.compounds.train[,c(1)], plsr.predicted.y, xlim = c(-2, 6), ylim = c(-2,6), xlab = "", ylab = "")
 par(new = T)
 plot(preprocessed.y.test, pls.predicted.y.test, col = "blue", pch = 2, xlim = c(-2, 6), ylim = c(-2,6), xlab = "observed value", ylab = "predicted value")
 abline(a=0, b=1)
+
+R2test.PLS <- 1 - sum((preprocessed.y.test - pls.predicted.y.test)^2) / sum((mean(preprocessed.y.test) - pls.predicted.y.test)^2)
+R2test.PLS
 
