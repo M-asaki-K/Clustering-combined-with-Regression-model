@@ -29,7 +29,8 @@ train.ratio <- 0.7
 
 #クラスタリング
 BIC.measured.kmeans <- as.matrix(Optimal_Clusters_KMeans(multi.regression.x, max.num.of.clusters, criterion = scale))
-Centroid.kmeans <- KMeans_rcpp(multi.regression.x, which(BIC.measured.kmeans == BIC.measured.kmeans[BIC.measured.kmeans == min(BIC.measured.kmeans),]), num_init = 20, max_iters = 100, initializer = "kmeans++")
+cluster.num <- which(BIC.measured.kmeans == BIC.measured.kmeans[BIC.measured.kmeans == min(BIC.measured.kmeans),])
+Centroid.kmeans <- KMeans_rcpp(multi.regression.x, cluster.num, num_init = 20, max_iters = 100, initializer = "kmeans++")
 Centroid.kmeans$centroids
 
 Clusters <- as.numeric(predict_KMeans(multi.regression.x, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
@@ -37,7 +38,7 @@ multi.regression.compounds.clusters <- cbind(multi.regression.compounds, Cluster
 multi.regression.x.clusters <- cbind(multi.regression.x, Clusters)
 
 #PLSによるそれぞれのクラスタに対する予測モデル構築（並列計算）
-CLUSTERMODEL <- foreach(i = 1:max.num.of.clusters, .combine = rbind,.packages = c("pls"))%dopar%{
+CLUSTERMODEL <- foreach(i = 1:cluster.num, .combine = rbind,.packages = c("pls"))%dopar%{
 #  i = 1
   compounds.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
   x.clusters <- multi.regression.x.clusters[multi.regression.x.clusters[, c(ncol(multi.regression.x.clusters))] == i, ]
