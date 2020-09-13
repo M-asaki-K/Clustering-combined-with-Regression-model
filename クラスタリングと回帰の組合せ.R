@@ -28,40 +28,36 @@ validation.method <- "CV"　#PLSの交差検証方法（"CV"または"LOO"）
 train.ratio <- 0.7
 
 #クラスタリング
-BIC.measured.kmeans <- as.matrix(Optimal_Clusters_KMeans(multi.regression.x, max.num.of.clusters, criterion = scale))
+BIC.measured.kmeans <- as.matrix(Optimal_Clusters_KMeans(multi.regression.x.train, max.num.of.clusters, criterion = scale))
 cluster.num <- which(BIC.measured.kmeans == BIC.measured.kmeans[BIC.measured.kmeans == min(BIC.measured.kmeans),])
-Centroid.kmeans <- KMeans_rcpp(multi.regression.x, cluster.num, num_init = 20, max_iters = 100, initializer = "kmeans++")
+Centroid.kmeans <- KMeans_rcpp(multi.regression.x.train, cluster.num, num_init = 20, max_iters = 100, initializer = "kmeans++")
 Centroid.kmeans$centroids
 
-Clusters <- as.numeric(predict_KMeans(multi.regression.x, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
-multi.regression.compounds.clusters <- cbind(multi.regression.compounds, Clusters)
-multi.regression.x.clusters <- cbind(multi.regression.x, Clusters)
+Clusters <- as.numeric(predict_KMeans(multi.regression.x.train, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
+multi.regression.compounds.clusters <- cbind(multi.regression.compounds.train, Clusters)
+multi.regression.x.clusters <- cbind(multi.regression.x.train, Clusters)
+
+Clusters.test <- as.numeric(predict_KMeans(multi.regression.x.test, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
+multi.regression.compounds.clusters.test <- cbind(multi.regression.compounds.test, Clusters.test)
+colnames(multi.regression.compounds.clusters.test) <- c(colnames(multi.regression.compounds.test), "Clusters")
+multi.regression.x.clusters.test <- cbind(multi.regression.x.test, Clusters.test)
+colnames(multi.regression.x.clusters.test) <- c(colnames(multi.regression.x.test), "Clusters")
 
 #PLSによるそれぞれのクラスタに対する予測モデル構築（並列計算）
 CLUSTERMODEL <- foreach(i = 1:cluster.num, .combine = rbind,.packages = c("pls"))%dopar%{
-#  i = 1
-  compounds.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
-  x.clusters <- multi.regression.x.clusters[multi.regression.x.clusters[, c(ncol(multi.regression.x.clusters))] == i, ]
 
-  #--------------------divide into test and training data----------------------
-  train_size = train.ratio
-  
-  n = nrow(compounds.clusters)
-  #------------collect the data with n*train_size from the dataset------------
-  perm = sample(n, size = round(n * train_size))
-  
   #-------------------training data----------------------------------------
-  multi.regression.compounds.train.clusters <- compounds.clusters[perm, ]
+  multi.regression.compounds.train.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
   preprocessed.y.train.clusters <- multi.regression.compounds.train.clusters[,c(1)]
   multi.regression.x.train.clusters <- multi.regression.compounds.train.clusters[,-c(1)]
   #-----------------------test data----------------------------------------
-  multi.regression.compounds.test.clusters <- compounds.clusters[-perm, ]
+  multi.regression.compounds.test.clusters <- multi.regression.compounds.clusters.test[multi.regression.compounds.clusters.test[, c(ncol(multi.regression.compounds.clusters.test))] == i, ]
   preprocessed.y.test.clusters <- multi.regression.compounds.test.clusters[,c(1)]
   multi.regression.x.test.clusters <- multi.regression.compounds.test.clusters[,-c(1)]
   
   #-----------transform into data frame--------------------------
   multi.regression.compounds.train.clusters <- as.data.frame(multi.regression.compounds.train.clusters)
-  
+
   #------------------------PLS training------------------------------------
   library(pls)
   
@@ -99,3 +95,4 @@ abline(a=0, b=1)
 is.completes.CLUSTERMODEL <- complete.cases(CLUSTERMODEL[, c(4,5)])
 R2test.CLUSTERMODEL <- 1 - sum((CLUSTERMODEL[is.completes.CLUSTERMODEL, c(4)] - CLUSTERMODEL[is.completes.CLUSTERMODEL, c(5)])^2) / sum((mean(CLUSTERMODEL[is.completes.CLUSTERMODEL, c(5)]) - CLUSTERMODEL[is.completes.CLUSTERMODEL, c(4)])^2)
 R2test.CLUSTERMODEL
+
