@@ -25,7 +25,7 @@ registerDoParallel(makeCluster(detectCores()))
 max.num.of.clusters <- 15 #BIC最小化によるクラスタ数選択において、最大いくつまで見るか
 scale <- "BIC"　#AICも選べる
 validation.method <- "CV"　#PLSの交差検証方法（"CV"または"LOO"）
-train.ratio <- 0.7
+train.ratio <- 0.8
 
 #クラスタリング
 BIC.measured.kmeans <- as.matrix(Optimal_Clusters_KMeans(multi.regression.x.train, max.num.of.clusters, criterion = scale))
@@ -33,18 +33,44 @@ cluster.num <- which(BIC.measured.kmeans == BIC.measured.kmeans[BIC.measured.kme
 Centroid.kmeans <- KMeans_rcpp(multi.regression.x.train, cluster.num, num_init = 20, max_iters = 100, initializer = "kmeans++")
 Centroid.kmeans$centroids
 
+#学習データに対するクラスタ算出
 Clusters <- as.numeric(predict_KMeans(multi.regression.x.train, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
 multi.regression.compounds.clusters <- cbind(multi.regression.compounds.train, Clusters)
 multi.regression.x.clusters <- cbind(multi.regression.x.train, Clusters)
 
+#各クラスタにおけるサンプル数をベクトルAに格納
+for (n in 1:cluster.num){
+A[n] <-  sum(Clusters == n)
+}
+
+#最もサンプル数の多いクラスタを抽出
+max.samples.num <- which(A == max(A))
+max.samples.num
+
+#サンプル数が10未満のクラスタは、最大クラスタに編入（モデルの不安定化を防ぐ）
+for (m in 1:cluster.num){
+    if (sum(Clusters == m) < 10){
+    Clusters[Clusters == m] <- max.samples.num
+  } 
+}
+
+#テストデータに対するクラスタ算出
 Clusters.test <- as.numeric(predict_KMeans(multi.regression.x.test, CENTROIDS = Centroid.kmeans$centroids, threads = detectCores()))
+
+#学習データにおいて最大クラスタに編入されたクラスタは、テストデータにおいても同じく最大クラスタに編入
+for (mt in 1:cluster.num){
+  if (sum(Clusters == mt) < 10){
+    Clusters.test[Clusters.test == mt] <- max.samples.num
+  } 
+}
+
 multi.regression.compounds.clusters.test <- cbind(multi.regression.compounds.test, Clusters.test)
 colnames(multi.regression.compounds.clusters.test) <- c(colnames(multi.regression.compounds.test), "Clusters")
 multi.regression.x.clusters.test <- cbind(multi.regression.x.test, Clusters.test)
 colnames(multi.regression.x.clusters.test) <- c(colnames(multi.regression.x.test), "Clusters")
 
 #PLSによるそれぞれのクラスタに対する予測モデル構築（並列計算）
-CLUSTERMODEL <- foreach(i = 1:cluster.num, .combine = rbind,.packages = c("pls"))%dopar%{
+CLUSTERMODEL <- foreach(i = unique(Clusters), .combine = rbind,.packages = c("pls"))%dopar%{
 
   #-------------------training data----------------------------------------
   multi.regression.compounds.train.clusters <- multi.regression.compounds.clusters[multi.regression.compounds.clusters[, c(ncol(multi.regression.compounds.clusters))] == i, ]
