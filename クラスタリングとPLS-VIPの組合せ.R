@@ -86,7 +86,9 @@ CLUSTERMODEL <- foreach(i = unique(Clusters), .combine = rbind,.packages = c("pl
   preprocessed.y.train.clusters <- multi.regression.compounds.train.clusters[,c(1)]
   multi.regression.x.train.clusters <- multi.regression.compounds.train.clusters[,-c(1)]
   #-----------------------test data----------------------------------------
-  multi.regression.compounds.test.clusters <- multi.regression.compounds.clusters.test[multi.regression.compounds.clusters.test[, c(ncol(multi.regression.compounds.clusters.test))] == i, ]
+  multi.regression.compounds.test.clusters <- matrix(multi.regression.compounds.clusters.test[multi.regression.compounds.clusters.test[, c(ncol(multi.regression.compounds.clusters.test))] == i, ], ncol = ncol(multi.regression.compounds.clusters.test))
+  multi.regression.compounds.test.clusters <- as.data.frame(multi.regression.compounds.test.clusters)
+  colnames(multi.regression.compounds.test.clusters) <- colnames(multi.regression.compounds.clusters.test)
   preprocessed.y.test.clusters <- multi.regression.compounds.test.clusters[,c(1)]
   multi.regression.x.test.clusters <- multi.regression.compounds.test.clusters[,-c(1)]
   
